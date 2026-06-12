@@ -22,7 +22,7 @@ CREATE TABLE book_pages (
     
    
     CONSTRAINT unique_book_page UNIQUE(book_id, page_number)
-);ц
+);
 
 
 CREATE INDEX idx_book_pages_book_id ON book_pages(book_id);

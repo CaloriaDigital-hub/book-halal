@@ -1,10 +1,11 @@
 package book
 import (
+	"errors"
 	"context"
 	"book_halal/internal/domain/books/entity"
 )
 
-
+var ErrBookNotFound = errors.New("book not found")
 
 type Repository interface {
 	Create(ctx context.Context, book *entity.Book) error

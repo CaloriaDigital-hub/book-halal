@@ -17,13 +17,10 @@ func NewGetBookPagesQueryHandler(repo repoBooks.Repository) *GetBookPagesQueryHa
 }
 
 func (h *GetBookPagesQueryHandler) Handle(ctx context.Context, bookID string) (queries.BookPagesResponse, error) {
+
 	pages, totalPages, err := h.repo.GetPagesByBookID(ctx, bookID)
 	if err != nil {
 		return queries.BookPagesResponse{}, fmt.Errorf("failed to get pages from db: %w", err)
-	}
-
-	if len(pages) == 0 {
-		return queries.BookPagesResponse{}, fmt.Errorf("book not found or processing not finished")
 	}
 
 	result := make([]queries.PageView, 0, len(pages))

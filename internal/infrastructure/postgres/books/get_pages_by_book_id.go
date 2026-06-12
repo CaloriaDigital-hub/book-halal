@@ -3,16 +3,20 @@ package books
 import (
 	"context"
 	"fmt"
+	"time"
 
 	book "book_halal/internal/domain/books/entity"
+	repoBooks "book_halal/internal/domain/books"
 )
 
 func (r *BookRepository) GetPagesByBookID(ctx context.Context, bookID string) ([]book.Page, int, error) {
 	query := `
-		SELECT bp.id, bp.book_id, bp.page_number, bp.image_url, bp.created_at, b.total_pages
-		FROM book_pages bp
-		JOIN books b ON b.id = bp.book_id
-		WHERE bp.book_id = $1
+		SELECT 
+			bp.id, bp.book_id, bp.page_number, bp.image_url, bp.created_at, 
+			b.total_pages
+		FROM books b
+		LEFT JOIN book_pages bp ON b.id = bp.book_id
+		WHERE b.id = $1
 		ORDER BY bp.page_number ASC
 	`
 
@@ -22,18 +26,51 @@ func (r *BookRepository) GetPagesByBookID(ctx context.Context, bookID string) ([
 	}
 	defer rows.Close()
 
-	var pages []book.Page
-	var totalPages int
+	var pages []book.Page = []book.Page{} // Сразу инициализируем, чтобы не отдавать nil
+	totalPages := -1
 
 	for rows.Next() {
-		var p book.Page
+		var (
+			pageID     *string
+			pBookID    *string
+			pageNum    *int
+			imageURL   *string
+			createdAt  *time.Time // Указатель для обработки возможного NULL
+			
+			fetchedTotalPages int
+		)
+
 		err := rows.Scan(
-			&p.ID, &p.BookID, &p.PageNumber, &p.ImageURL, &p.CreatedAt, &totalPages,
+			&pageID, &pBookID, &pageNum, &imageURL, &createdAt,
+			&fetchedTotalPages,
 		)
 		if err != nil {
 			return nil, 0, fmt.Errorf("scan page: %w", err)
 		}
-		pages = append(pages, p)
+
+		totalPages = fetchedTotalPages
+
+		// Если pageID != nil, значит страница есть
+		if pageID != nil {
+			p := book.Page{
+				ID:         *pageID,
+				BookID:     *pBookID,
+				PageNumber: *pageNum,
+				ImageURL:   *imageURL,
+			}
+			
+			// Безопасно разыменовываем время
+			if createdAt != nil {
+				p.CreatedAt = *createdAt
+			}
+			
+			pages = append(pages, p)
+		}
+	}
+
+	// Если цикл ни разу не выполнился, totalPages останется -1 (книги нет в базе)
+	if totalPages == -1 {
+		return nil, 0, fmt.Errorf("%w: id %s", repoBooks.ErrBookNotFound, bookID)
 	}
 
 	return pages, totalPages, nil

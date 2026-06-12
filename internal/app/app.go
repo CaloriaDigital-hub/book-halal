@@ -45,7 +45,7 @@ func (a *App) setupRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/books/upload", a.container.AdminOnly(a.container.BooksController.UploadBook))
 
 	fs := http.FileServer(middleware.NoListFileSystem(http.Dir(a.staticRoot)))
-mux.Handle("GET /static/", middleware.CacheStatic(http.StripPrefix("/static/", fs)))
+	mux.Handle("GET /static/", middleware.CacheStatic(http.StripPrefix("/static/", fs)))
 }
 
 func (a *App) Run() error {
