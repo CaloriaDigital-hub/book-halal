@@ -1,0 +1,464 @@
+openapi: 3.0.3
+info:
+  title: Book Halal API
+  version: 1.0.0
+  description: API documentation for the Book Halal reading platform.
+
+servers:
+  - url: http://localhost:8090
+    description: Local Development Server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/register/initiate:
+    post:
+      summary: Initiate Registration
+      description: Start the user registration process. Sends a confirmation code to the user's email.
+      tags:
+        - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Registration initiated successfully.
+
+  /api/auth/register/confirm:
+    post:
+      summary: Confirm Registration
+      description: Confirm the user's email using the code sent during initiation.
+      tags:
+        - Auth
+        - User
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name, email, password, code]
+              properties:
+                first_name:
+                  type: string
+                last_name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                code:
+                  type: string
+      responses:
+        '200':
+          description: Registration confirmed successfully.
+
+  /api/auth/sign-in:
+    post:
+      summary: Sign In
+      description: Authenticate user and get a session token.
+      tags:
+        - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successfully signed in.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+
+  /api/books/catalog:
+    get:
+      summary: Get Books Catalog
+      description: Retrieve a list of all ready books.
+      tags:
+        - Books
+      responses:
+        '200':
+          description: A list of books.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+
+  /api/books/{id}:
+    get:
+      summary: Get Book Details
+      description: Retrieve details for a specific book by ID.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Book details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+
+  /api/books/{id}/pages:
+    get:
+      summary: Get Book Pages
+      description: Retrieve pages for a specific book. Supports pagination via query parameters.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+          description: Starting page number (1-based index).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: Number of pages to retrieve. 0 means all pages.
+      responses:
+        '200':
+          description: List of pages.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_pages:
+                    type: integer
+                  pages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Page'
+
+  /api/books/{id}/pages/{page}:
+    get:
+      summary: Get Single Book Page
+      description: Retrieve a specific page of a book by its page number.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: A single page.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Page'
+
+  /api/books/{id}/ask:
+    post:
+      summary: Ask a Question About a Book
+      description: |
+        Use RAG (Retrieval-Augmented Generation) to ask a natural language question about the book's content.
+        The service searches relevant passages in the book and answers using DeepSeek AI.
+      tags:
+        - RAG
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  example: "Что говорит книга о намазе?"
+      responses:
+        '200':
+          description: AI answer with source references.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AskResponse'
+        '503':
+          description: RAG service is unavailable.
+
+  /api/books/{id}/progress:
+    put:
+      summary: Save Reading Progress
+      description: Update the user's reading progress (last read page) for a specific book.
+      tags:
+        - Reader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [page_number]
+              properties:
+                page_number:
+                  type: integer
+      responses:
+        '200':
+          description: Progress saved.
+    get:
+      summary: Get Reading Progress
+      description: Retrieve the user's last read page for a specific book. Defaults to page 1.
+      tags:
+        - Reader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reading progress.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page_number:
+                    type: integer
+                  updated_at:
+                    type: string
+                    format: date-time
+
+  /api/books/{id}/bookmarks:
+    post:
+      summary: Add Bookmark
+      description: Add a bookmark for the user on a specific page of a book.
+      tags:
+        - Reader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [page_number]
+              properties:
+                page_number:
+                  type: integer
+      responses:
+        '201':
+          description: Bookmark added or existing returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bookmark'
+    get:
+      summary: Get Bookmarks
+      description: Retrieve a list of bookmarks for the user for a specific book.
+      tags:
+        - Reader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of bookmarks.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Bookmark'
+
+  /api/books/{id}/bookmarks/{page}:
+    delete:
+      summary: Remove Bookmark
+      description: Remove a bookmark on a specific page.
+      tags:
+        - Reader
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Bookmark removed successfully.
+
+  /api/admin/books/upload:
+    post:
+      summary: Upload Book (Admin Only)
+      description: Upload a new PDF book. Requires Admin privileges.
+      tags:
+        - Admin
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [title, author, description, price, file]
+              properties:
+                title:
+                  type: string
+                author:
+                  type: string
+                description:
+                  type: string
+                price:
+                  type: integer
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Book uploaded and processing started.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Book:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        author:
+          type: string
+        description:
+          type: string
+        price:
+          type: integer
+        cover_url:
+          type: string
+        total_pages:
+          type: integer
+        status:
+          type: string
+          enum: [processing, ready, error]
+        created_at:
+          type: string
+          format: date-time
+
+    Page:
+      type: object
+      properties:
+        page_number:
+          type: integer
+        image_url:
+          type: string
+
+    Bookmark:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        page_number:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    AskSource:
+      type: object
+      properties:
+        page:
+          type: integer
+        text:
+          type: string
+
+    AskResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AskSource'

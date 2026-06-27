@@ -1,24 +1,70 @@
 services:
   postgres:
-    image: postgres:16-alpine
-    container_name: book_halal_pg
+    image: postgres:15-alpine
+    container_name: book_halal_postgres
     environment:
-      - POSTGRES_USER=admin
-      - POSTGRES_PASSWORD=secretpassword
-      - POSTGRES_DB=book_halal
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: book_halal
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d book_halal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: book_halal_redis
     ports:
       - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: book_halal_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8090:8090"
     volumes:
-      - redisdata:/data
+      - ./backend/static:/app/static
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+
+  rag-service:
+    build:
+      context: ./rag-service-book
+      dockerfile: Dockerfile
+    container_name: book_halal_rag
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/app/chroma_db
+    env_file:
+      - ./rag-service-book/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   pgdata:
-  redisdata:
+  chroma_data:
