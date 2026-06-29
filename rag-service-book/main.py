@@ -5,8 +5,11 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
+import pytesseract
+from graph import build_graph, delete_graph
 
 from vectorstore import search, index_chunks, delete_book_index
+from vectorstore import hybrid_search
 from chunker import pdf_to_chunks
 from ocr import ocr_from_url
 
@@ -15,6 +18,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Backend URL for downloading book images (use container name in Docker)
+BACKEND_URL = os.getenv("BACKEND_URL", "http://book_halal_backend:8090")
+
+# Set Tesseract path
+pytesseract.pytesseract.tesseract_cmd = os.getenv("TESSERACT_PATH", "/usr/bin/tesseract")
+
+
 app = FastAPI(
     title="Book Halal RAG Service",
     description="Retrieval-Augmented Generation for Islamic books",
@@ -22,7 +32,7 @@ app = FastAPI(
 )
 
 llm = OpenAI(
-    api_key=os.getenv("LLM_API_KEY"),
+    api_key=os.getenv("LLM_API_KEYS"),
     base_url="https://api.deepseek.com",
 )
 
@@ -80,7 +90,7 @@ def ask_book(book_id: str, req: AskRequest):
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="question cannot be empty")
 
-    results = search(book_id, req.question, top_k=3)
+    results = hybrid_search(book_id, req.question, top_k=5)
 
     if not results:
         return AskResponse(
@@ -118,14 +128,24 @@ def ask_book(book_id: str, req: AskRequest):
 def index_book(book_id: str, req: IndexRequest):
     """
     Index a book by page image URLs.
-    For each page: download image → OCR → store in ChromaDB.
+    For each page: download image → OCR → store in Qdrant.
     """
     chunks = []
     metadatas = []
     skipped = 0
 
+    if chunks:
+        index_chunks(book_id, chunks, metadatas)
+    
+    # Строим граф
+        pages = [m["page"] for m in metadatas]
+        build_graph(book_id, chunks, pages)
+        logger.info(f"graph built book_id={book_id}")
+
     for page in req.pages:
-        text = ocr_from_url(page.image_url)
+        # Replace localhost with backend container hostname
+        fixed_url = page.image_url.replace("http://localhost:8090", BACKEND_URL)
+        text = ocr_from_url(fixed_url)
         if not text:
             logger.warning(f"book_id={book_id} page={page.page_number}: OCR returned empty, skipping")
             skipped += 1
@@ -144,6 +164,9 @@ def index_book(book_id: str, req: IndexRequest):
 def delete_index(book_id: str):
     """Delete the entire vector index for a book (e.g. before re-upload)."""
     delete_book_index(book_id)
+    delete_graph(book_id)  # добавить
+    logger.info(f"deleted index for book_id={book_id}")
+    return {"deleted": book_id}
     logger.info(f"deleted index for book_id={book_id}")
     return {"deleted": book_id}
 
@@ -151,24 +174,31 @@ def delete_index(book_id: str):
 @app.get("/admin/books/{book_id}/index", tags=["Admin"])
 def inspect_index(book_id: str, limit: int = 10):
     """
-    Debug: return stored chunks for a book from ChromaDB.
+    Debug: return stored chunks for a book from Qdrant.
     limit — max number of chunks to return (default 10).
     """
-    from vectorstore import get_collection
-    collection = get_collection(book_id)
-    count = collection.count()
+    from vectorstore import client
+    collection_name = f"book_{book_id}"
+
+    if not client.collection_exists(collection_name=collection_name):
+        return {"book_id": book_id, "total": 0, "chunks": []}
+
+    collection_info = client.get_collection(collection_name=collection_name)
+    count = collection_info.points_count
 
     if count == 0:
         return {"book_id": book_id, "total": 0, "chunks": []}
 
-    results = collection.get(
-        limit=min(limit, count),
-        include=["documents", "metadatas"],
+    results, _ = client.scroll(
+        collection_name=collection_name,
+        limit=limit,
+        with_payload=True,
+        with_vectors=False,
     )
 
     chunks = [
-        {"page": meta.get("page"), "text": doc}
-        for doc, meta in zip(results["documents"], results["metadatas"])
+        {"page": point.payload.get("page"), "text": point.payload.get("text")}
+        for point in results
     ]
 
     return {"book_id": book_id, "total": count, "chunks": chunks}

@@ -1,6 +1,7 @@
 import io
 import logging
 import urllib.request
+import sys
 
 from PIL import Image
 import pytesseract
@@ -44,4 +45,6 @@ def ocr_from_url(image_url: str) -> str:
 
     except Exception as e:
         logger.warning(f"OCR failed for {image_url}: {e}")
+        logger.debug(f"Tesseract path: {pytesseract.pytesseract.tesseract_cmd}")
+        logger.debug(f"Python PATH: {sys.path}")
         return ""
