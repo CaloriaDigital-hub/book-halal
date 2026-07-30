@@ -24,7 +24,6 @@ func NewUser(id valueobjects.UserId, firstName, lastName string, email valueobje
 	}
 }
 
-// Reconstruct rebuilds a User from persisted data (no defaults applied).
 func Reconstruct(id valueobjects.UserId, firstName, lastName string, email valueobjects.Email, passHash valueobjects.HashedPassword, role valueobjects.Role) *User {
 	return &User{
 		ID:        id,

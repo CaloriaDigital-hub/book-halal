@@ -3,6 +3,8 @@ package main
 import (
 	"book_halal/internal/app"
 	"book_halal/internal/config"
+	"book_halal/internal/infrastructure/postgres"
+	"book_halal/internal/infrastructure/redis"
 	"context"
 	"log"
 	"log/slog"
@@ -11,30 +13,21 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	
-	"github.com/jackc/pgx/v5/pgxpool"
-	goredis "github.com/redis/go-redis/v9"
 )
 
 func main() {
 	cfg := config.Load()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	pgPool, err := pgxpool.New(ctx, cfg.PGUrl)
+	pgPool, err := postgres.NewPostgresPool(cfg.PGUrl)
 	if err != nil {
-		log.Fatalf("postgres: %v", err)
+		log.Fatalf("postgres connection error: %v", err)
 	}
 	defer pgPool.Close()
 
-	redisClient := goredis.NewClient(&goredis.Options{
-		Addr:     cfg.RedisAddr,
-		Password: cfg.RedisPassword,
-	})
-	if err := redisClient.Ping(ctx).Err(); err != nil {
-		log.Fatalf("redis: %v", err)
+	redisClient, err := redis.NewRedisClient(cfg.RedisAddr, cfg.RedisPassword)
+	if err != nil {
+		log.Fatalf("redis connection error: %v", err)
 	}
 	defer redisClient.Close()
 
