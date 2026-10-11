@@ -5,4 +5,5 @@
 static
 
 
-storage
+# чеки об оплате (PRIVATE_ROOT): только корневая папка, не пакет internal/infrastructure/storage
+/storage
