@@ -2,5 +2,6 @@
 export const adminRoutes = {
   overview: "/admin",
   books: "/admin/books",
+  payments: "/admin/payments",
   book: (id: string) => `/admin/books/${encodeURIComponent(id)}`,
 };

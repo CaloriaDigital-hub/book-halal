@@ -54,7 +54,7 @@ export function UploadBookWidget({ bookHref }: { bookHref: (id: string) => strin
           <Textarea value={form.description} onChange={set("description")} />
         </Field>
         <div className={styles.row}>
-          <Field label="Цена, ₽" hint="0 — бесплатно">
+          <Field label="Цена, сом" hint="0 — бесплатно">
             <Input type="number" min={0} step={1} required value={form.price} onChange={set("price")} />
           </Field>
           <Field label="PDF-файл" hint="До 100 МБ">

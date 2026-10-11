@@ -1,3 +1,4 @@
+import { formatSom } from "@/shared/lib/format";
 import type { Tone } from "@/shared/ui";
 
 const STATUS: Record<string, { label: string; tone: Tone }> = {
@@ -11,5 +12,5 @@ export function bookStatus(status: string) {
 }
 
 export function formatPrice(price: number) {
-  return price === 0 ? "Бесплатно" : `${price.toLocaleString("ru-RU")} ₽`;
+  return price === 0 ? "Бесплатно" : formatSom(price);
 }

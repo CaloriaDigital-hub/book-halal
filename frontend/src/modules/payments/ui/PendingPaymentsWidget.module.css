@@ -1,0 +1,19 @@
+.value {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.attention {
+  color: var(--warning);
+}
+
+.label {
+  color: var(--text-muted);
+}
+
+.link {
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+}
