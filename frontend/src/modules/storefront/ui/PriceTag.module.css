@@ -1,0 +1,12 @@
+.price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.free {
+  color: var(--success);
+}
+
+.large {
+  font-size: 22px;
+}

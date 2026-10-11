@@ -1,15 +1,21 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE } from "@/modules/auth/server";
+import { checkAdmin, SESSION_COOKIE } from "@/modules/auth/server";
 
-// Оптимистичная проверка: нет cookie — сразу на логин. Реальные права
-// проверяются в BFF-роутах (/api/backend, /api/rag) на каждом запросе.
-export function proxy(request: NextRequest) {
-  if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
-  const url = new URL("/login", request.url);
-  url.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
-  return NextResponse.redirect(url);
+// Без сессии — на вход (и обратно после него). В /admin пускаем только админов.
+// Реальные права всё равно проверяют BFF и Go-бэк на каждом запросе.
+export async function proxy(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  if (!token) {
+    const url = new URL("/login", request.url);
+    url.searchParams.set("next", request.nextUrl.pathname + request.nextUrl.search);
+    return NextResponse.redirect(url);
+  }
+  if (request.nextUrl.pathname.startsWith("/admin") && (await checkAdmin(token)) === "forbidden") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: "/admin/:path*",
+  matcher: ["/admin/:path*", "/books/:id/read", "/books/:id/buy"],
 };

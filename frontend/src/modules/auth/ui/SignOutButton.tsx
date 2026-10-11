@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/shared/ui";
 import { signOut } from "../api/session-api";
+import { setSession } from "../model/use-session";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export function SignOutButton() {
     try {
       await signOut();
     } finally {
+      setSession({ authenticated: false });
       router.replace("/login");
     }
   }

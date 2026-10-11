@@ -1,0 +1,77 @@
+.book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back {
+  width: fit-content;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.back:hover {
+  color: var(--text);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.cover {
+  width: 100%;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.title {
+  font-size: clamp(22px, 3.5vw, 32px);
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.author {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.pages {
+  color: var(--text-muted);
+}
+
+.actions {
+  margin: var(--space-2) 0;
+}
+
+.description {
+  max-width: 640px;
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .cover {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+}

@@ -1,0 +1,87 @@
+.zone {
+  display: block;
+  padding: var(--space-5);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.zone:hover,
+.dragging {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.filled {
+  border-style: solid;
+  padding: var(--space-3);
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.icon {
+  font-size: 32px;
+}
+
+.label {
+  font-weight: 600;
+}
+
+.sub,
+.change {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.selected {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.preview,
+.pdf {
+  flex-shrink: 0;
+  width: 64px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fileName {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

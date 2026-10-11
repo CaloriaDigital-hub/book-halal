@@ -1,7 +1,8 @@
 import "server-only";
 import { cookies } from "next/headers";
 
-export const SESSION_COOKIE = "bh_admin_session";
+// Одна сессия на покупателя и админа; роль проверяется в BFF.
+export const SESSION_COOKIE = "bh_session";
 
 export async function getSessionToken(): Promise<string | null> {
   return (await cookies()).get(SESSION_COOKIE)?.value ?? null;

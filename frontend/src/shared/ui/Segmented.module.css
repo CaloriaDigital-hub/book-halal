@@ -1,0 +1,29 @@
+.group {
+  display: flex;
+  padding: 3px;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.option {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.option:hover {
+  color: var(--text);
+}
+
+.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}

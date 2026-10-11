@@ -13,7 +13,12 @@ export class ApiError extends Error {
 
 const LOGIN_PATH = "/login";
 
-export async function http<T>(url: string, init?: RequestInit): Promise<T> {
+type HttpOptions = {
+  /** false — не уводить на /login при 401 (публичные страницы, где гость — норма). */
+  authRedirect?: boolean;
+};
+
+export async function http<T>(url: string, init?: RequestInit, options: HttpOptions = {}): Promise<T> {
   let res: Response;
   try {
     res = await fetch(url, { cache: "no-store", ...init });
@@ -24,7 +29,7 @@ export async function http<T>(url: string, init?: RequestInit): Promise<T> {
   const text = await res.text();
   const data = text ? parseJson(text) : null;
 
-  if (res.status === 401 && !url.startsWith("/api/session")) {
+  if (res.status === 401 && options.authRedirect !== false && !url.startsWith("/api/session")) {
     redirectToLogin();
   }
   if (!res.ok) {
