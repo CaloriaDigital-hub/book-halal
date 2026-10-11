@@ -161,6 +161,8 @@ paths:
             default: 0
           description: Number of pages to retrieve. 0 means all pages.
       responses:
+        '403':
+          description: Paid book is not purchased yet (see POST /api/books/{id}/purchase).
         '200':
           description: List of pages.
           content:
@@ -194,6 +196,8 @@ paths:
           schema:
             type: integer
       responses:
+        '403':
+          description: Paid book is not purchased yet (see POST /api/books/{id}/purchase).
         '200':
           description: A single page.
           content:
@@ -228,6 +232,8 @@ paths:
                   type: string
                   example: "Что говорит книга о намазе?"
       responses:
+        '403':
+          description: Paid book is not purchased yet (see POST /api/books/{id}/purchase).
         '200':
           description: AI answer with source references.
           content:
@@ -392,6 +398,207 @@ paths:
         '200':
           description: Book uploaded and processing started.
 
+  /api/payments/requisites:
+    get:
+      summary: Payment Requisites
+      description: Bank details and QR code the buyer pays to before uploading a receipt. Prices are in KGS (сом).
+      tags:
+        - Payments
+      responses:
+        '200':
+          description: Requisites (details/qr_url may be empty if not configured yet).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSettings'
+
+  /api/books/{id}/purchase:
+    post:
+      summary: Submit Payment Receipt
+      description: |
+        Buyer uploads a receipt (screenshot or PDF) and a contact. The receipt is sent to the admins'
+        Telegram group (topic «Платежи») with «Подтвердить» / «Отклонить» buttons.
+        Paid book content (pages, RAG questions) opens after approval.
+      tags:
+        - Payments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [receipt, contact_type, contact]
+              properties:
+                receipt:
+                  type: string
+                  format: binary
+                  description: jpg, png, webp or pdf, up to 10 MB (type is detected by content).
+                contact_type:
+                  type: string
+                  enum: [phone, whatsapp, telegram]
+                contact:
+                  type: string
+                  description: Phone number, or Telegram @username / phone.
+                  example: "+996 555 123 456"
+      responses:
+        '201':
+          description: Purchase created, waiting for review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Purchase'
+        '400':
+          description: Missing/invalid receipt or contact, or the book is free.
+        '404':
+          description: Book not found.
+        '409':
+          description: A payment for this book is already pending or approved.
+    get:
+      summary: My Payment Status
+      description: Latest purchase of this book by the current user.
+      tags:
+        - Payments
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Purchase status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Purchase'
+        '404':
+          description: The user has not submitted a payment for this book.
+
+  /api/admin/payments/requisites:
+    put:
+      summary: Update Payment Requisites (Admin)
+      tags:
+        - Admin
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                details:
+                  type: string
+                qr:
+                  type: string
+                  format: binary
+                  description: New QR image (jpg, png, webp, up to 5 MB). Omit to keep the current one.
+                remove_qr:
+                  type: string
+                  enum: ["true"]
+      responses:
+        '200':
+          description: Saved requisites.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSettings'
+
+  /api/admin/purchases:
+    get:
+      summary: List Purchases (Admin)
+      tags:
+        - Admin
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            maximum: 200
+      responses:
+        '200':
+          description: Purchases, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdminPurchase'
+
+  /api/admin/purchases/{id}/approve:
+    post:
+      summary: Approve Purchase (Admin)
+      description: Same as the «Подтвердить» button in Telegram — opens the book for the buyer.
+      tags:
+        - Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPurchase'
+        '409':
+          description: Already reviewed.
+
+  /api/admin/purchases/{id}/reject:
+    post:
+      summary: Reject Purchase (Admin)
+      description: The buyer can submit a new receipt afterwards.
+      tags:
+        - Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Rejected.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPurchase'
+        '409':
+          description: Already reviewed.
+
+  /api/admin/purchases/{id}/receipt:
+    get:
+      summary: Receipt File (Admin)
+      tags:
+        - Admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Receipt image or PDF.
+
 components:
   securitySchemes:
     bearerAuth:
@@ -400,6 +607,68 @@ components:
       bearerFormat: JWT
 
   schemas:
+    PaymentSettings:
+      type: object
+      properties:
+        details:
+          type: string
+        qr_url:
+          type: string
+          example: /static/payments/qr-1791737700.png
+        currency:
+          type: string
+          example: KGS
+        updated_at:
+          type: string
+          format: date-time
+
+    Purchase:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        book_id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          description: Price in som at the moment of purchase.
+        currency:
+          type: string
+          example: KGS
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        created_at:
+          type: string
+          format: date-time
+        reviewed_at:
+          type: string
+          format: date-time
+
+    AdminPurchase:
+      allOf:
+        - $ref: '#/components/schemas/Purchase'
+        - type: object
+          properties:
+            book_title:
+              type: string
+            buyer_name:
+              type: string
+            buyer_email:
+              type: string
+            contact_type:
+              type: string
+              enum: [phone, whatsapp, telegram]
+            contact_value:
+              type: string
+            receipt_mime:
+              type: string
+            reviewed_by:
+              type: string
+              description: Telegram @username or admin email.
+
     Book:
       type: object
       properties:

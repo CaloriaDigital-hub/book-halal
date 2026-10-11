@@ -16,6 +16,9 @@ func (c *BookController) AskBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !c.ensureAccess(w, r, bookID) {
+		return
+	}
 	var req askRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Question == "" {
 		c.sendError(w, http.StatusBadRequest, "question is required")

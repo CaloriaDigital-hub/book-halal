@@ -17,6 +17,9 @@ func (c *BookController) GetPages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	if !c.ensureAccess(w, r, bookID) {
+		return
+	}
 	fromStr := r.URL.Query().Get("from")
 	limitStr := r.URL.Query().Get("limit")
 

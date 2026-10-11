@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"book_halal/internal/application/books/queries"
+	"book_halal/internal/middleware"
 )
 
 // GetBookByID обрабатывает GET /api/books/{id}
@@ -28,7 +31,18 @@ func (c *BookController) GetBookByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// has_access — можно ли читать книгу и спрашивать по ней RAG (для кнопки «Читать» / «Купить»)
+	hasAccess := false
+	if user, ok := middleware.UserFromContext(r.Context()); ok {
+		if hasAccess, err = c.access.CanRead(r.Context(), user, bookID); err != nil {
+			fmt.Println("access check in GetBookByID:", err)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(bookDetails)
+	json.NewEncoder(w).Encode(struct {
+		queries.BookDetailsView
+		HasAccess bool `json:"has_access"`
+	}{bookDetails, hasAccess})
 }

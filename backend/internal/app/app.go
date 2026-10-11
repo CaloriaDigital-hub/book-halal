@@ -55,16 +55,32 @@ func (a *App) setupRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/books/{id}/bookmarks", a.container.Authenticated(a.container.ReaderController.GetBookmarks))
 	mux.Handle("DELETE /api/books/{id}/bookmarks/{page}", a.container.Authenticated(a.container.ReaderController.RemoveBookmark))
 
+	// Purchases — покупатель
+	mux.Handle("GET /api/payments/requisites", a.container.Authenticated(a.container.PurchaseController.GetRequisites))
+	mux.Handle("POST /api/books/{id}/purchase", a.container.Authenticated(a.container.PurchaseController.CreatePurchase))
+	mux.Handle("GET /api/books/{id}/purchase", a.container.Authenticated(a.container.PurchaseController.GetMyPurchase))
+
 	// Admin
 	mux.Handle("POST /api/admin/books/upload", a.container.AdminOnly(a.container.BooksController.UploadBook))
+	mux.Handle("PUT /api/admin/payments/requisites", a.container.AdminOnly(a.container.PurchaseController.UpdateRequisites))
+	mux.Handle("GET /api/admin/purchases", a.container.AdminOnly(a.container.PurchaseController.ListPurchases))
+	mux.Handle("POST /api/admin/purchases/{id}/approve", a.container.AdminOnly(a.container.PurchaseController.ApprovePurchase))
+	mux.Handle("POST /api/admin/purchases/{id}/reject", a.container.AdminOnly(a.container.PurchaseController.RejectPurchase))
+	mux.Handle("GET /api/admin/purchases/{id}/receipt", a.container.AdminOnly(a.container.PurchaseController.GetReceipt))
 
 	// Static files (covers book images and covers)
-	fs := http.FileServer(middleware.NoListFileSystem(http.Dir(a.staticRoot)))
+	// PDF книг не раздаём: иначе платную книгу можно скачать в обход оплаты
+	fs := http.FileServer(middleware.NoListFileSystem(middleware.DenyExtensions(http.Dir(a.staticRoot), ".pdf")))
 	mux.Handle("GET /static/", middleware.CacheStatic(http.StripPrefix("/static/", fs)))
 
 	// API Documentation (Scalar UI)
 	docsFs := http.FileServer(http.Dir("docs"))
 	mux.Handle("GET /docs/", http.StripPrefix("/docs/", docsFs))
+}
+
+// Container — доступ к фоновым компонентам (Telegram-бот) из main.
+func (a *App) Container() *Container {
+	return a.container
 }
 
 func (a *App) Run() error {

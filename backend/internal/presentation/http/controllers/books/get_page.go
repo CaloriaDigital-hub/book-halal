@@ -13,6 +13,9 @@ func (c *BookController) GetPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !c.ensureAccess(w, r, bookID) {
+		return
+	}
 	pageStr := r.PathValue("page")
 	pageNumber, err := strconv.Atoi(pageStr)
 	if err != nil || pageNumber < 1 {

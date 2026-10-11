@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	repoBooks "book_halal/internal/domain/books"
 	"book_halal/internal/domain/books/entity"
 	"book_halal/internal/domain/books/value_objects"
 )
@@ -22,7 +23,7 @@ func (r *BookRepository) GetByID(ctx context.Context, bookID string) (*entity.Bo
 	defer rows.Close()
 
 	if !rows.Next() {
-		return nil, fmt.Errorf("book not found")
+		return nil, repoBooks.ErrBookNotFound
 	}
 
 	var b entity.Book
