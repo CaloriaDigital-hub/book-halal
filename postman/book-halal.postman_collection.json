@@ -1,0 +1,792 @@
+{
+  "info": {
+    "name": "Book Halal",
+    "description": "API коллекция для Book Halal: Go backend (порт 8090) и RAG-сервис (порт 8000).\n\nПорядок работы:\n1. Auth → Initiate Registration (код придёт на email)\n2. Auth → Confirm Registration (вставь код в переменную `code`)\n3. Auth → Sign In — токен автоматически сохраняется в `token`\n4. Admin → Upload Book — `book_id` автоматически сохраняется в `bookId` (нужна роль admin)\n5. Books / Reader запросы используют `{{token}}` и `{{bookId}}`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8090"
+    },
+    {
+      "key": "ragUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "bookId",
+      "value": "15e01377-caf6-444c-be2b-953da693eb75"
+    },
+    {
+      "key": "page",
+      "value": "1"
+    },
+    {
+      "key": "email",
+      "value": "user@example.com"
+    },
+    {
+      "key": "password",
+      "value": "password123"
+    },
+    {
+      "key": "code",
+      "value": "123456"
+    },
+    {
+      "key": "staticDir",
+      "value": "/app/static",
+      "description": "Папка static бэкенда внутри RAG-контейнера (volume ./backend/static:/app/static). Для локального запуска RAG: C:/Users/musli/work-env/develop/book-halal-project/backend/static"
+    },
+    {
+      "key": "indexPages",
+      "value": "[]"
+    },
+    {
+      "key": "pdfPath",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Initiate Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register/initiate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "initiate"
+              ]
+            },
+            "description": "Отправляет код подтверждения на email. Ответ 200: `{\"message\": \"verification code sent to email\"}`"
+          }
+        },
+        {
+          "name": "Confirm Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Ivan\",\n  \"last_name\": \"Ivanov\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"code\": \"{{code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register/confirm",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register",
+                "confirm"
+              ]
+            },
+            "description": "Подтверждает регистрацию кодом из письма. Ответ 201: `{\"message\": \"user successfully registered\"}`"
+          }
+        },
+        {
+          "name": "Sign In",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('token', body.token);",
+                  "}",
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/sign-in",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "sign-in"
+              ]
+            },
+            "description": "Возвращает `{\"token\", \"expires_at\"}`. Токен автоматически сохраняется в переменную коллекции `token`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "Get Catalog",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    const books = Array.isArray(body) ? body : (body.books || []);",
+                  "    if (books.length && books[0].id && !pm.collectionVariables.get('bookId')) {",
+                  "        pm.collectionVariables.set('bookId', books[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/catalog",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "catalog"
+              ]
+            },
+            "description": "Список готовых книг. Если `bookId` пуст, первый id из каталога сохраняется в него."
+          }
+        },
+        {
+          "name": "Get Book By ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Book Pages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/pages?from=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "pages"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "1",
+                  "description": "Номер первой страницы (>= 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Сколько страниц вернуть (0 = все)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Page",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/pages/{{page}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "pages",
+                "{{page}}"
+              ]
+            },
+            "description": "Ответ: `{\"page_number\", \"image_url\"}`"
+          }
+        },
+        {
+          "name": "Ask Book (RAG)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"О чём эта книга?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/ask",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "ask"
+              ]
+            },
+            "description": "Проксирует вопрос в RAG-сервис. Ответ: `{\"answer\", \"sources\": [{\"page\", \"text\"}]}`"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reader",
+      "item": [
+        {
+          "name": "Save Progress",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page_number\": {{page}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/progress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "progress"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Progress",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/progress",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "progress"
+              ]
+            },
+            "description": "Ответ: `{\"page_number\", \"updated_at\"}`"
+          }
+        },
+        {
+          "name": "Add Bookmark",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page_number\": {{page}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/bookmarks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "bookmarks"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Bookmarks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/bookmarks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "bookmarks"
+              ]
+            },
+            "description": "Ответ: массив `{\"id\", \"page_number\", \"created_at\"}`"
+          }
+        },
+        {
+          "name": "Remove Bookmark",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/books/{{bookId}}/bookmarks/{{page}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "books",
+                "{{bookId}}",
+                "bookmarks",
+                "{{page}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Upload Book",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 202) {",
+                  "    pm.collectionVariables.set('bookId', pm.response.json().book_id);",
+                  "}",
+                  "pm.test('Status 202', () => pm.response.to.have.status(202));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Название книги",
+                  "type": "text"
+                },
+                {
+                  "key": "author",
+                  "value": "Автор",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Описание книги",
+                  "type": "text"
+                },
+                {
+                  "key": "price",
+                  "value": "0",
+                  "type": "text",
+                  "description": "Целое число"
+                },
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": [],
+                  "description": "PDF файл книги (до 100 МБ)"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/books/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "books",
+                "upload"
+              ]
+            },
+            "description": "Требует роль admin. Ответ 202: `{\"message\", \"book_id\"}` — `book_id` сохраняется в `bookId`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Static & Docs",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "API Docs (Scalar UI)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/docs/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "OpenAPI Spec",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/docs/openapi.yaml",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "docs",
+                "openapi.yaml"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "RAG Service",
+      "auth": {
+        "type": "noauth"
+      },
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{ragUrl}}/health",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Ask Book",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"О чём эта книга?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{ragUrl}}/books/{{bookId}}/ask",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "books",
+                "{{bookId}}",
+                "ask"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Index Book (pages)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pages\": {{indexPages}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{ragUrl}}/admin/books/{{bookId}}/index",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "admin",
+                "books",
+                "{{bookId}}",
+                "index"
+              ]
+            },
+            "description": "OCR страниц по image_url и индексация. Pre-request скрипт сам подтягивает все страницы книги `{{bookId}}` через GET /api/books/{id}/pages (нужен `token`). Ответ: `{\"indexed\", \"skipped\"}`."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Берём реальные страницы книги из бэкенда и строим абсолютные image_url",
+                  "const baseUrl = pm.collectionVariables.get('baseUrl');",
+                  "const bookId = pm.collectionVariables.get('bookId');",
+                  "const token = pm.collectionVariables.get('token');",
+                  "pm.sendRequest({",
+                  "    url: `${baseUrl}/api/books/${bookId}/pages`,",
+                  "    method: 'GET',",
+                  "    header: { Authorization: `Bearer ${token}` }",
+                  "}, (err, res) => {",
+                  "    if (err || res.code !== 200) {",
+                  "        console.error('Не удалось получить страницы книги (нужен Sign In)', err || res.code);",
+                  "        return;",
+                  "    }",
+                  "    const pages = res.json().pages.map(p => ({",
+                  "        page_number: p.page_number,",
+                  "        image_url: p.image_url.startsWith('http') ? p.image_url : baseUrl + p.image_url",
+                  "    }));",
+                  "    pm.collectionVariables.set('indexPages', JSON.stringify(pages));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Index Book (PDF path)",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{ragUrl}}/admin/books/{{bookId}}/index-pdf?pdf_path={{pdfPath}}",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "admin",
+                "books",
+                "{{bookId}}",
+                "index-pdf"
+              ],
+              "query": [
+                {
+                  "key": "pdf_path",
+                  "value": "{{pdfPath}}",
+                  "description": "Собирается автоматически из staticDir + bookId"
+                }
+              ]
+            },
+            "description": "Индексация текстового слоя PDF. Путь строится автоматически: `{{staticDir}}/books/{{bookId}}/book.pdf`. В Docker static бэкенда примонтирован в RAG-контейнер как `/app/static` (read-only)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Бэкенд сохраняет оригинал в static/books/{bookId}/book.pdf",
+                  "const dir = pm.collectionVariables.get('staticDir');",
+                  "const bookId = pm.collectionVariables.get('bookId');",
+                  "pm.collectionVariables.set('pdfPath', `${dir}/books/${bookId}/book.pdf`);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Inspect Index",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{ragUrl}}/admin/books/{{bookId}}/index?limit=10",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "admin",
+                "books",
+                "{{bookId}}",
+                "index"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Index",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{ragUrl}}/admin/books/{{bookId}}/index",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "admin",
+                "books",
+                "{{bookId}}",
+                "index"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Debug Page Chunks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{ragUrl}}/debug/page/{{bookId}}?page={{page}}",
+              "host": [
+                "{{ragUrl}}"
+              ],
+              "path": [
+                "debug",
+                "page",
+                "{{bookId}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "{{page}}"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

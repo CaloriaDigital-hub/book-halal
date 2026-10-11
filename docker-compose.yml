@@ -59,6 +59,7 @@ services:
       - "8000:8000"
     volumes:
       - chroma_data:/app/chroma_db
+      - ./backend/static:/app/static:ro
     environment:
       BACKEND_URL: http://book_halal_backend:8090
       TESSDATA_PREFIX: /usr/share/tesseract-ocr/4.00/tessdata
