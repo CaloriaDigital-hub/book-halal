@@ -39,9 +39,9 @@ func (a *App) setupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/register/confirm", a.container.AuthController.ConfirmRegistration)
 	mux.HandleFunc("POST /api/auth/sign-in", a.container.AuthController.SignIn)
 
-	// Books — catalog & details
-	mux.Handle("GET /api/books/catalog", a.container.Authenticated(a.container.BooksController.GetCatalog))
-	mux.Handle("GET /api/books/{id}", a.container.Authenticated(a.container.BooksController.GetBookByID))
+	// Books — каталог и карточка книги открыты всем (витрина); has_access считается, если передан токен
+	mux.Handle("GET /api/books/catalog", a.container.Public(a.container.BooksController.GetCatalog))
+	mux.Handle("GET /api/books/{id}", a.container.Public(a.container.BooksController.GetBookByID))
 	mux.Handle("GET /api/books/{id}/pages", a.container.Authenticated(a.container.BooksController.GetPages))
 	mux.Handle("GET /api/books/{id}/pages/{page}", a.container.Authenticated(a.container.BooksController.GetPage))
 	mux.Handle("POST /api/books/{id}/ask", a.container.Authenticated(a.container.BooksController.AskBook))

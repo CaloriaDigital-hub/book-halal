@@ -43,11 +43,17 @@ type Container struct {
 	// TelegramBot — nil, если TELEGRAM_BOT_TOKEN не задан.
 	TelegramBot *telegram.Bot
 
-	authMiddleware func(http.Handler) http.Handler
+	authMiddleware         func(http.Handler) http.Handler
+	optionalAuthMiddleware func(http.Handler) http.Handler
 }
 
 func (c *Container) AdminOnly(handler http.HandlerFunc) http.Handler {
 	return c.authMiddleware(middleware.RequireAdmin(handler))
+}
+
+// Public — эндпоинт открыт всем; если передан валидный токен, пользователь доступен в контексте.
+func (c *Container) Public(handler http.HandlerFunc) http.Handler {
+	return c.optionalAuthMiddleware(handler)
 }
 
 func (c *Container) Authenticated(handler http.HandlerFunc) http.Handler {
@@ -138,6 +144,7 @@ func NewContainer(cfg *config.Config, pgPool *pgxpool.Pool, redisClient *goredis
 			logger,
 		),
 		TelegramBot:    telegramBot,
-		authMiddleware: middleware.Authenticate(sessionRepo, userRepo),
+		authMiddleware:         middleware.Authenticate(sessionRepo, userRepo),
+		optionalAuthMiddleware: middleware.OptionalAuthenticate(sessionRepo, userRepo),
 	}
 }
