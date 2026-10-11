@@ -1,11 +1,13 @@
 import pickle
 import os
 import numpy as np
+import torch
 import networkx as nx
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
-model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+model = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+                            model_kwargs={"torch_dtype": torch.float16})
 
 GRAPH_DIR = "graphs"
 os.makedirs(GRAPH_DIR, exist_ok=True)

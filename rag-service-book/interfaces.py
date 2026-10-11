@@ -12,6 +12,11 @@ class BaseEmbedder(ABC):
         """Преобразует поисковый запрос в вектор."""
         ...
 
+    @abstractmethod
+    def count_tokens(self, text: str) -> int:
+        """Длина текста в токенах модели — для нарезки на чанки."""
+        ...
+
 class BaseVectorStore(ABC):
     @abstractmethod
     def create_collection(self, collection_name: str, vector_size: int):

@@ -1,5 +1,6 @@
 # pipeline.py
 import time
+import uuid
 import logging
 from interfaces import BaseEmbedder, BaseVectorStore, BaseRetriever, BaseGenerator
 from graph_legacy import build_graph, delete_graph
@@ -31,7 +32,8 @@ class BookRAG:
         points = []
         for i, (chunk, emb, meta) in enumerate(zip(chunks, embeddings, metadatas)):
             points.append({
-                "id": f"{book_id}_{i}",
+                # Qdrant принимает только uint или UUID — детерминированный UUID из прежнего ключа
+                "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"{book_id}_{i}")),
                 "vector": emb,
                 "payload": {"text": chunk, **meta},
             })

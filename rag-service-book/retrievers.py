@@ -1,6 +1,7 @@
 # retrievers.py
 import time
 import logging
+import torch
 from sentence_transformers import CrossEncoder
 from interfaces import BaseEmbedder, BaseVectorStore, BaseRetriever
 from graph_legacy import search_graph
@@ -15,7 +16,8 @@ class HybridRetriever(BaseRetriever):
         self.vector_store = vector_store
         logger.info(f"Loading reranker model {reranker_model_name}...")
         t_load = time.time()
-        self.reranker = CrossEncoder(reranker_model_name, max_length=512, device="cuda")
+        self.reranker = CrossEncoder(reranker_model_name, max_length=512, device="cuda",
+                                     automodel_args={"torch_dtype": torch.float16})
         logger.info(f"Reranker loaded in {time.time() - t_load:.2f}s")
 
     def retrieve(self, book_id: str, query: str, top_k: int = 5) -> list[dict]:

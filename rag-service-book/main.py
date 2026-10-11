@@ -14,8 +14,9 @@ from retrievers import HybridRetriever
 from generators import DeepSeekGenerator
 from pipeline import BookRAG
 
-from chunker import pdf_to_chunks
+from chunker import pdf_to_chunks, split_text
 from ocr import ocr_from_url
+from pdf_text import MIN_PAGE_CHARS, load_pdf_pages
 
 load_dotenv()
 
@@ -64,6 +65,8 @@ class AskResponse(BaseModel):
 class IndexResponse(BaseModel):
     indexed: int
     skipped: int = 0
+    chunks: int = 0
+    ocr_pages: int = 0
 
 class HealthResponse(BaseModel):
     status: str
@@ -92,23 +95,33 @@ def ask_book(book_id: str, req: AskRequest):
 def index_book(book_id: str, req: IndexRequest):
     chunks = []
     metadatas = []
+    indexed = 0
     skipped = 0
+    ocr_pages = 0
+    # Текстовый слой PDF точнее OCR; OCR — только для страниц без него (сканы)
+    pdf_pages = load_pdf_pages(book_id)
 
     for page in req.pages:
-        fixed_url = page.image_url.replace("http://localhost:8090", BACKEND_URL)
-        text = ocr_from_url(fixed_url)
+        text = pdf_pages.get(page.page_number, "")
+        if len(text) < MIN_PAGE_CHARS:
+            fixed_url = page.image_url.replace("http://localhost:8090", BACKEND_URL)
+            text = ocr_from_url(fixed_url)
+            ocr_pages += 1
         if not text:
             logger.warning(f"book_id={book_id} page={page.page_number}: OCR empty, skipping")
             skipped += 1
             continue
-        chunks.append(text)
-        metadatas.append({"page": page.page_number, "book_id": book_id})
+        for i, chunk in enumerate(split_text(text, embedder.count_tokens)):
+            chunks.append(chunk)
+            metadatas.append({"page": page.page_number, "book_id": book_id, "chunk": i})
+        indexed += 1
 
     if chunks:
         rag.index(book_id, chunks, metadatas)
 
-    logger.info(f"indexed book_id={book_id} indexed={len(chunks)} skipped={skipped}")
-    return IndexResponse(indexed=len(chunks), skipped=skipped)
+    logger.info(f"indexed book_id={book_id} pages={indexed} chunks={len(chunks)} "
+                f"skipped={skipped} ocr_pages={ocr_pages} pdf_pages={len(pdf_pages)}")
+    return IndexResponse(indexed=indexed, skipped=skipped, chunks=len(chunks), ocr_pages=ocr_pages)
 
 
 @app.delete("/admin/books/{book_id}/index", tags=["Admin"])
@@ -141,7 +154,7 @@ def inspect_index(book_id: str, limit: int = 10):
     )
 
     chunks = [
-        {"page": point.payload.get("page"), "text": point.payload.get("text")}
+        {"page": point.payload.get("page"), "chunk": point.payload.get("chunk"), "text": point.payload.get("text")}
         for point in results
     ]
 
@@ -161,6 +174,28 @@ def index_pdf(book_id: str, pdf_path: str):
     return IndexResponse(indexed=len(chunks))
 
 
+class RetrieveRequest(BaseModel):
+    question: str
+    top_k: int = 10
+
+
+@app.post("/debug/retrieve/{book_id}", tags=["Debug"])
+def debug_retrieve(book_id: str, req: RetrieveRequest):
+    """Только поиск (без LLM) — для оценки качества retrieval, см. eval/run_eval.py."""
+    results = rag.retriever.retrieve(book_id, req.question, top_k=req.top_k)
+    return {
+        "results": [
+            {
+                "page": r["metadata"].get("page"),
+                "chunk": r["metadata"].get("chunk"),
+                "score": r["score"],
+                "text": r["text"][:200],
+            }
+            for r in results
+        ]
+    }
+
+
 @app.get("/debug/page/{book_id}")
 def debug_page(book_id: str, page: int):
     collection_name = f"book_{book_id}"
@@ -172,9 +207,11 @@ def debug_page(book_id: str, page: int):
                 {"key": "page", "match": {"value": page}}
             ]
         },
-        limit=1,
+        limit=100,
     )
     if points:
-        payload = points[0].payload
-        return {"found": True, "page": payload.get("page"), "text": payload.get("text", "")}
+        # Страница режется на несколько чанков — отдаём все, по порядку
+        points.sort(key=lambda p: p.payload.get("chunk", 0))
+        texts = [p.payload.get("text", "") for p in points]
+        return {"found": True, "page": page, "chunks": len(texts), "text": "\n\n— — —\n\n".join(texts)}
     return {"found": False}

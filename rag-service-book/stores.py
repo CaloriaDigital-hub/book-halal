@@ -57,7 +57,7 @@ class QdrantVectorStore(BaseVectorStore):
         return self.client.collection_exists(collection_name=collection_name)
 
     def get_pages_by_numbers(self, collection_name: str, book_id: str, page_numbers: list[int]) -> list[dict]:
-        """Возвращает чанки для указанных страниц (если есть)."""
+        """Возвращает все чанки указанных страниц (если есть)."""
         if not self.collection_exists(collection_name):
             return []
         results = []
@@ -70,10 +70,9 @@ class QdrantVectorStore(BaseVectorStore):
                         {"key": "page", "match": {"value": page}}
                     ]
                 },
-                limit=1,
+                limit=100,
             )
-            if points:
-                p = points[0]
+            for p in sorted(points, key=lambda p: p.payload.get("chunk", 0)):
                 results.append({
                     "text": p.payload.get("text", ""),
                     "metadata": p.payload,
