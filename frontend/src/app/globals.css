@@ -1,0 +1,93 @@
+/*
+ * Только дизайн-токены и reset. Никаких стилей конкретных компонентов —
+ * они живут в *.module.css рядом с компонентом и не протекают наружу.
+ */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-muted: #f0f2f5;
+  --border: #e2e5ea;
+  --text: #1b1f24;
+  --text-muted: #626b77;
+  --accent: #1f7a5c;
+  --accent-hover: #186049;
+  --accent-contrast: #ffffff;
+  --danger: #c0392b;
+  --danger-bg: #fdecea;
+  --warning: #9a6700;
+  --warning-bg: #fff4d6;
+  --success: #1a7f37;
+  --success-bg: #e6f4ea;
+  --info-bg: #eaf2fb;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --surface: #171b21;
+    --surface-muted: #1e232b;
+    --border: #2b313a;
+    --text: #e6e9ed;
+    --text-muted: #98a1ad;
+    --accent: #3fb68b;
+    --accent-hover: #5cc79f;
+    --accent-contrast: #0b1a14;
+    --danger: #f2766b;
+    --danger-bg: #3a1d1b;
+    --warning: #e3b341;
+    --warning-bg: #352a10;
+    --success: #4ac26b;
+    --success-bg: #12301c;
+    --info-bg: #15263a;
+    --shadow: none;
+
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}

@@ -1,0 +1,22 @@
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.meta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+
+.checked {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: 12px;
+}

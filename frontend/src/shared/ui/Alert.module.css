@@ -1,0 +1,45 @@
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.text {
+  overflow-wrap: anywhere;
+}
+
+.action {
+  flex-shrink: 0;
+}
+
+.danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.info {
+  background: var(--info-bg);
+  color: var(--text);
+}

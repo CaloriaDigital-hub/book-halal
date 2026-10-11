@@ -1,0 +1,42 @@
+.summary {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+.props {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  min-width: 0;
+}
+
+.props dt {
+  color: var(--text-muted);
+}
+
+.props dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  white-space: pre-line;
+}
+
+@media (max-width: 520px) {
+  .summary {
+    flex-direction: column;
+  }
+}
